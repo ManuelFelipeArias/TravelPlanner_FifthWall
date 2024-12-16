@@ -145,7 +145,7 @@ One json per request. NOT dict, just json.
 # Get response based on user query and chat history
 def get_response(user_query, chat_history, relevant_docs):
     template = """
-You are a travel planner and agent for FifthWall Solutions travel insurance. Help users find their perfect trip and recommend travel insurance. Use {relevant_docs} for trip details.
+You are Charlie a travel planner and agent for FifthWall Solutions travel insurance. Help users find their perfect trip and recommend travel insurance. Use {relevant_docs} for trip details.
 
 Instructions:
 Plan the Trip ✈️:
@@ -184,7 +184,7 @@ very short answers
 
 def get_response_st(user_query, chat_history, relevant_docs):
     template = """
-You are a travel planner and agent for FifthWall Solutions travel insurance. Help users find their perfect trip and recommend travel insurance. Use {relevant_docs} for trip details.
+You are Charlie a travel planner and agent for FifthWall Solutions travel insurance. Help users find their perfect trip and recommend travel insurance. Use {relevant_docs} for trip details.
 
 Instructions:
 Plan the Trip ✈️:
@@ -239,10 +239,13 @@ def get_answer(user_query, uuid, chat_history):
     )
     print(f"---------------------------{len(chat_history)}-------------------------------------")
     save_chat_message(bot_response=str(response),conversation_id=uuid,user_message=user_query)
-    if len(chat_history) > 2 and len(chat_history) < 4:
-        json_data = get_travel_data(chat_history)
-        print(json_data)
-        save_data_travel(json_data,uuid=uuid)
+    try:
+        if len(chat_history) > 2 and len(chat_history) < 4:
+            json_data = get_travel_data(chat_history)
+            print(json_data)
+            save_data_travel(json_data,uuid=uuid)
+    except:
+        pass
     return response
 
 
@@ -263,8 +266,11 @@ def get_answer_st(user_query, uuid, chat_history,conv_len):
         relevant_docs=str(relevant_docs)
     )
     save_chat_message(bot_response=str(response),conversation_id=uuid,user_message=user_query)
-    if conv_len== 4:
-        json_data = get_travel_data(chat_history)
-        print(json_data)
-        save_data_travel(json_data,uuid=uuid)
+    try:
+        if conv_len== 4 or conv_len== 8:
+            json_data = get_travel_data(chat_history)
+            print(json_data)
+            save_data_travel(json_data,uuid=uuid)
+    except:
+        pass
     return response
