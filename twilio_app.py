@@ -22,12 +22,7 @@ TWILIO_WHATSAPP_NUMBER = 'whatsapp:+14155238886'
 cache_sac = {}
 # Función para guardar las conversaciones en un CSV
 def guardar_conversacion(numero, mensaje, origen):
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     numero = str(numero).replace("whatsapp:+57", "")
-    nuevo_registro = pd.DataFrame([[numero, mensaje, origen, timestamp]], columns=['Numero', 'Mensaje', 'Origen', 'Timestamp'])
-    
-    # Guardar en el archivo CSV
-    nuevo_registro.to_csv('conversaciones.csv', mode='a', header=not os.path.exists('conversaciones.csv'), index=False, sep=";")
 
 
 # Define a route to handle incoming requests

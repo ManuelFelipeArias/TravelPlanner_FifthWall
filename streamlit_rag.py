@@ -1,33 +1,12 @@
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_groq import ChatGroq
-import os
-import re
 from dotenv import load_dotenv
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 import pandas as pd
-from datetime import datetime
-import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from typing import Annotated, TypedDict
-import nltk
-from nltk.corpus import stopwords
-import datetime
-import random
 import uuid
-import altair as alt
-import os
 from dotenv import load_dotenv
-from datetime import datetime
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
-from langchain_core.output_parsers import StrOutputParser
-import json
-import dateutil.parser
 from funciones import get_answer_st
 import plotly.express as px
+import sqlite3
 
 # Cargar variables de entorno
 load_dotenv()
@@ -46,31 +25,87 @@ load_dotenv()
 
 
 
-# Agrupar y contar los sentimientos
-if 'Feeling' in sentimientos.columns:
-    # Agrupar por el campo 'Feeling' y contar la cantidad de ocurrencias de cada sentimiento
-    grupos = sentimientos.groupby("Feeling").size().reset_index(name='Count')
+with col2:
+    # Connect to the SQLite database and load the data into a DataFrame
+    conn = sqlite3.connect('cache.db')
+    query = "SELECT * FROM travel_user_data"
+    df = pd.read_sql(query, conn)
 
-    # Mostrar el resultado en Streamlit
-    with col2:
+    # Close the connection
+    conn.close()
 
-        # Crear un gráfico de tipo donut con Plotly
-        fig = px.pie(
-            grupos, 
+    # Filter out rows with None or 'None' values in relevant columns
+    df = df[df['days'].notna() & (df['days'] != 'None')]  # Filter 'None' and NaN in 'days'
+    df = df[df['destination'].notna() & (df['destination'] != 'None')]  # Filter 'None' and NaN in 'destination'
+    df = df[df['budget'].notna() & (df['budget'] != 'None')]  # Filter 'None' and NaN in 'budget'
+
+    # 1. Pie Chart for the distribution of trips by 'days'
+    if 'days' in df.columns:
+        # Grouping by the 'days' column and counting occurrences
+        day_groups = df.groupby("days").size().reset_index(name='Count')
+
+        # Create a pie chart
+        fig_day = px.pie(
+            day_groups, 
             values='Count', 
-            names='Feeling', 
-            title='Distribución de Sentimientos',
-            hole=0.4,  # Esto hace que sea un gráfico de anillo
+            names='days', 
+            title='Distribution of Trips by Days',
+            hole=0.4,  # Donut chart
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
 
-        # Mostrar el gráfico en Streamlit
-        st.plotly_chart(fig, use_container_width=True)
+        # Display the chart in Streamlit
+        st.plotly_chart(fig_day, use_container_width=True)
 
-else:
-    st.error("La columna 'Feeling' no existe en la tabla de sentimientos.")
+    else:
+        st.error("The 'days' column does not exist in the data.")
 
+    # 2. Bar Chart for the number of trips to each destination (sorted)
+    if 'destination' in df.columns:
+        # Grouping by 'destination' and counting occurrences
+        destination_groups = df.groupby("destination").size().reset_index(name='Count')
 
+        # Sorting destinations by count
+        destination_groups = destination_groups.sort_values(by='Count', ascending=False)
+
+        # Create a bar chart
+        fig_dest = px.bar(
+            destination_groups, 
+            x='destination', 
+            y='Count', 
+            title='Number of Trips to Each Destination',
+            labels={'destination': 'Destination', 'Count': 'Number of Trips'},
+            color='Count',
+            color_continuous_scale='Blues'
+        )
+
+        # Display the chart in Streamlit
+        st.plotly_chart(fig_dest, use_container_width=True)
+
+    else:
+        st.error("The 'destination' column does not exist in the data.")
+
+    # 3. Bar Chart for Budget Analysis by Days (average budget per day)
+    if 'budget' in df.columns and 'days' in df.columns:
+        # Grouping by 'days' and calculating the average budget for each group
+        budget_by_day = df.groupby("days")['budget'].mean().reset_index(name='Average Budget')
+
+        # Create a bar chart
+        fig_budget = px.bar(
+            budget_by_day, 
+            x='days', 
+            y='Average Budget', 
+            title='Average Budget Analysis by Days',
+            labels={'days': 'Number of Days', 'Average Budget': 'Average Budget'},
+            color='Average Budget',
+            color_continuous_scale='Viridis'
+        )
+
+        # Display the chart in Streamlit
+        st.plotly_chart(fig_budget, use_container_width=True)
+
+    else:
+        st.error("The 'budget' or 'days' columns do not exist in the data.")
 
 
 # Asegúrate de que conversation_id está inicializado
@@ -82,12 +117,12 @@ if "conversation_id" not in st.session_state:
 # Estado de la sesión
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        AIMessage(content="Hola! ¿Como te sientes el dia de hoy?"),
+        AIMessage(content="Hi! I’m here to plan your perfect trip and secure it with FifthWall Travel Insurance. Where would you like to go?"),
     ]
 
 # Estado de la sesión
 if "chat_history" not in st.session_state:
-    st.markdown("# Hola!👋🏻 como te sientes el dia de hoy?")
+    st.markdown("Hi! I’m here to plan your perfect trip and secure it with FifthWall Travel Insurance. Where would you like to go?")
 
 with col1:
 
@@ -100,28 +135,8 @@ with col1:
             with st.chat_message("Human"):
                 st.write(message.content)
 # Entrada del usuario
-user_query = st.chat_input("Escriba acá sus intereses...")
+user_query = st.chat_input("Write here your places to travel...")
 
-
-def save_feeling_to_csv(chat_history, conversation_id, feeling):
-    feeling_data = {
-        "ConversationID": conversation_id,
-        "Timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
-        "Feeling": feeling
-    }
-
-    feeling_df = pd.DataFrame([feeling_data])
-    feeling_file = "sentimientos.csv"
-    
-    # Cargar el archivo existente si existe
-    if os.path.exists(feeling_file):
-        existing_df = pd.read_csv(feeling_file)
-        # Concatenar y eliminar duplicados
-        updated_df = pd.concat([existing_df, feeling_df]).drop_duplicates(subset=['ConversationID', 'Timestamp', 'Feeling'], keep='last')
-        updated_df.to_csv(feeling_file, index=False)
-    else:
-        feeling_df.to_csv(feeling_file, index=False)
-    
 
 
 
@@ -137,8 +152,9 @@ if user_query:
         response = st.write_stream(get_answer_st(
             user_query[:500], 
             chat_history=str(st.session_state.chat_history[-5:])[:2000],
+            conv_len = len(st.session_state.chat_history),
             uuid = st.session_state.conversation_id
         ))
-        print(f'------{response}-------')
+        
         st.session_state.chat_history.append(AIMessage(content=response))
         
