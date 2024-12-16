@@ -240,7 +240,7 @@ def get_answer(user_query, uuid, chat_history):
     print(f"---------------------------{len(chat_history)}-------------------------------------")
     save_chat_message(bot_response=str(response),conversation_id=uuid,user_message=user_query)
     try:
-        if len(chat_history) > 2 and len(chat_history) < 4:
+        if len(chat_history) ==3 or len(chat_history) == 8 or len(chat_history) == 15:
             json_data = get_travel_data(chat_history)
             print(json_data)
             save_data_travel(json_data,uuid=uuid)
@@ -267,7 +267,7 @@ def get_answer_st(user_query, uuid, chat_history,conv_len):
     )
     save_chat_message(bot_response=str(response),conversation_id=uuid,user_message=user_query)
     try:
-        if conv_len== 4 or conv_len== 8:
+        if conv_len== 4 or conv_len== 8 or conv_len== 15:
             json_data = get_travel_data(chat_history)
             print(json_data)
             save_data_travel(json_data,uuid=uuid)
